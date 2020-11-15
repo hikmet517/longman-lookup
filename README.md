@@ -1,0 +1,1 @@
+# longman-lookup.el
