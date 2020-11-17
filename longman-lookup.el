@@ -2,16 +2,23 @@
 
 ;; Author: Hikmet Altıntaş (hikmet1517@gmail.com)
 ;; Keywords: tools, extensions
-;; URL: "https://github.com/hikmet517/lookup-longman.el"
+;; URL: "https://github.com/hikmet517/longman-lookup.el"
 ;; Keywords: convenience
 
 ;;; Commentary:
 ;; Lookup a word in Longman English Dictionary and create an org mode buffer
 ;; containing definitions.
 
+;;; TODO:
+;; some entries have only references (REFHWD), title is not needed for them
+;; - https://www.ldoceonline.com/dictionary/beyond
+
 ;;; Code:
+(require 'url)
 (require 'dom)
 (require 'org)
+(require 'thingatpt)
+
 
 (defun longman-lookup--get-node-text (n)
   "Get text inside node N (escaping &nbsp and multiple spaces)."
@@ -56,17 +63,16 @@
   "Fetch the definition of WORD from 'ldoceonline.com' and create an org mode buffer to display it."
   (interactive (list
                 (let ((w (thing-at-point 'word)))
-                  (setq w (if w (string-trim w) ""))
-                  (read-string (format "Enter word (%s): " w)
-                               nil nil w))))
+                  (if w (read-string (format "Enter word (%s): " w)
+                                     nil nil w)
+                    (read-string "Enter word: ")))))
   (let* ((entries-text nil)
          (header nil)
          (u (concat "https://www.ldoceonline.com/search/english/direct/?q="
                     (replace-regexp-in-string " " "+" word)))
-         (temp-buf (url-retrieve-synchronously
-                    u)))
+         (temp-buf (url-retrieve-synchronously u)))
     (unless temp-buf
-      (error "Fetch failed: %s" u))
+      (error "Fetch failed: %s\n" u))
     (with-current-buffer temp-buf
       (let* ((b (point-min))
              (e (point-max))
@@ -78,10 +84,13 @@
                             entries
                             "")))
       (kill-buffer))
-    (when (or (null header)
-              (string-prefix-p "Sorry, there are no results for" header)
+    (when (or (null tree)
+              (null header)
+              (null entries))
+      (error "Parse failed or necessary information cannot be found."))
+    (when (or (string-prefix-p "Sorry, there are no results for" header)
               (string-prefix-p "Did you mean" header))
-      (error "Word not found: %s" word))
+      (error "Word not found: %s\n" word))
     (let ((buf (get-buffer-create (format "ldoce <%s>" header))))
       (with-current-buffer buf
         (org-mode)
