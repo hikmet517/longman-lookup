@@ -17,23 +17,41 @@
 ;;   - a word with no entry but ref
 ;;   - a word with no sense etc.
 ;;   - good example: 'mind'
+;;   - phrasal verbs: 'look up'
+;; * write dictionary
+;;   - 'From Longman Dictionary of Contemporary English'
+;;   - 'From Longman Business Dictionary'
 
 
 ;;; Code:
+
+;;;; Libraries
 (require 'url)
 (require 'dom)
 (require 'org)
 (require 'thingatpt)
 (require 'subr-x)
+(require 'simple)
 
 
+;;;; Variables
+(defvar read-only-org-mode-map
+  special-mode-map)
+
+(define-derived-mode read-only-org-mode org-mode "Read-Only Org"
+  "Major mode used in longman-lookup."
+  (org-show-all)
+  (goto-char (point-min))
+  (setq buffer-read-only t))
+
+
+;;;; Functions
 (defun longman-lookup--get-node-text (n)
   "Get text inside node N (escaping &nbsp and multiple spaces)."
   (string-trim (replace-regexp-in-string
                 " +"
                 " "
                 (replace-regexp-in-string " " " " (dom-texts n "")))))
-
 
 (defun longman-lookup--parse-sense (sense)
   "Parse SENSE nodes."
@@ -56,12 +74,11 @@
         (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n")))))
     text))
 
-
 (defun longman-lookup--parse-entry (entry)
   "Parse the entry ENTRY."
   (let* ((pos (string-trim (dom-text (car (dom-by-class entry "^POS$")))))
          (senses (dom-by-class entry "^Sense$"))
-         (word (dom-text (car (dom-by-class entry "^HWD$"))))
+         (word (dom-text (car (dom-by-class entry "HWD$"))))
          (entry-header (concat "* "
                                word
                                (unless (string-empty-p pos) (format " (%s)" pos))
@@ -74,7 +91,6 @@
     (if (string-empty-p entry-text)
         nil
       (concat entry-header entry-text))))
-
 
 ;;;###autoload
 (defun longman-lookup (word)
@@ -110,11 +126,10 @@
         (when buffer-read-only
           (setq buffer-read-only nil)
           (erase-buffer))
-        (org-mode)
         (insert entries-text)
-        (setq buffer-read-only t))
+        (set-buffer-modified-p nil)
+        (read-only-org-mode))
       (display-buffer buf))))
-
 
 (provide 'longman-lookup)
 ;;; longman-lookup.el ends here
