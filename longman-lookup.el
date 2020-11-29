@@ -107,20 +107,20 @@
                     (replace-regexp-in-string " " "+" word)))
          (temp-buf (url-retrieve-synchronously u)))
     (unless temp-buf
-      (error "Fetch failed: %s\n" u))
+      (error "Fetch failed: %s" u))
     (with-current-buffer temp-buf
       (let* ((tree (libxml-parse-html-region (point-min) (point-max)))
              (entries (dom-by-class tree "^dictentry$")))
-        (when (or (null tree)
-                  (null entries))
-          (error "Parse failed or necessary information cannot be found"))
+        (when (null tree)
+          (error "Parse failed"))
         (setq header (longman-lookup--get-node-text (car (dom-by-tag tree 'h1))))
+        (when (or (null header)
+                  (null entries)
+                  (string-prefix-p "Sorry, there are no results for" header)
+                  (string-prefix-p "Did you mean" header))
+          (error "Word not found: %s" word))
         (setq entries-text (mapconcat #'longman-lookup--parse-entry entries "")))
       (kill-buffer))
-    (when (or (null header)
-              (string-prefix-p "Sorry, there are no results for" header)
-              (string-prefix-p "Did you mean" header))
-      (error "Word not found: %s\n" word))
     (let ((buf (get-buffer-create (format "*ldoce <%s>*" header))))
       (with-current-buffer buf
         (when buffer-read-only
