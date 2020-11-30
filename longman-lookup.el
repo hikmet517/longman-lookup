@@ -21,6 +21,7 @@
 ;; * write dictionary
 ;;   - 'From Longman Dictionary of Contemporary English'
 ;;   - 'From Longman Business Dictionary'
+;; * indentation in 'meddle'
 
 
 ;;; Code:
@@ -36,13 +37,24 @@
 
 ;;;; Variables
 (defvar read-only-org-mode-map
-  special-mode-map)
+  (let ((map (make-sparse-keymap)))
+    (define-key map "q" 'quit-window)
+    (define-key map " " 'scroll-up-command)
+    (define-key map [?\S-\ ] 'scroll-down-command)
+    (define-key map "\C-?" 'scroll-down-command)
+    (define-key map "?" 'describe-mode)
+    (define-key map "h" 'describe-mode)
+    (define-key map ">" 'end-of-buffer)
+    (define-key map "<" 'beginning-of-buffer)
+    (define-key map "g" 'revert-buffer)
+    map))
 
 (define-derived-mode read-only-org-mode org-mode "Read-Only Org"
   "Major mode used in longman-lookup."
   (org-show-all)
   (goto-char (point-min))
-  (setq buffer-read-only t))
+  (setq buffer-read-only t)
+  (set-buffer-modified-p nil))
 
 
 ;;;; Functions
@@ -121,13 +133,13 @@
           (error "Word not found: %s" word))
         (setq entries-text (mapconcat #'longman-lookup--parse-entry entries "")))
       (kill-buffer))
+    ;; result buffer
     (let ((buf (get-buffer-create (format "*ldoce <%s>*" header))))
       (with-current-buffer buf
         (when buffer-read-only
           (setq buffer-read-only nil)
           (erase-buffer))
         (insert entries-text)
-        (set-buffer-modified-p nil)
         (read-only-org-mode))
       (display-buffer buf))))
 
