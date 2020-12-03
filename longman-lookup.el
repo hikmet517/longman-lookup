@@ -67,19 +67,22 @@
 
 (defun longman-lookup--parse-sense (sense)
   "Parse SENSE nodes."
-  (let ((text ""))
+  (let ((text "")
+        (indent ""))
     (dolist (node (dom-non-text-children sense))
       (cond
        ((string= (dom-attr node 'class) "DEF")
-        (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n")))
+        (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n"))
+        (setq indent (make-string 4 ?\s)))
        ((string= (dom-attr node 'class) "EXAMPLE")
-        (setq text (concat text "    - " (longman-lookup--get-node-text node) "\n")))
+        (setq text (concat text indent "- " (longman-lookup--get-node-text node) "\n")))
        ((string= (dom-attr node 'class) "GramExa")
         (setq text (concat text (format "    - *%s*\n"
-                                        (longman-lookup--get-node-text
-                                         (dom-by-class node "PROPFORM")))))
+                                                (longman-lookup--get-node-text
+                                                 (dom-by-class node "PROPFORM")))))
+        (setq indent (make-string 6 ?\s))
         (dolist (ex (dom-by-class node "^EXAMPLE$"))
-          (setq text (concat text "      - " (longman-lookup--get-node-text ex) "\n"))))
+          (setq text (concat text indent "- " (longman-lookup--get-node-text ex) "\n"))))
        ((string= (dom-attr node 'class) "Subsense")
         (setq text (concat text (longman-lookup--parse-sense node))))
        ((string= (dom-attr node 'class) "Crossref")
