@@ -19,6 +19,7 @@
 ;;   - good example: 'mind'
 ;;   - phrasal verbs: 'look up'
 ;;   - 'render' includes both 'GramExa' and 'ColloExa'
+;;   - 'evasive' 'PROPFORMPREP'
 ;; * write dictionary
 ;;   - 'From Longman Dictionary of Contemporary English'
 ;;   - 'From Longman Business Dictionary'
@@ -83,6 +84,7 @@
        ((or (string= (dom-attr node 'class) "GramExa")
             (string= (dom-attr node 'class) "ColloExa"))
         (let* ((defnode (or (dom-by-class node "^PROPFORM$")
+                            (dom-by-class node "^PROPFORMPREP$")
                             (dom-by-class node "^COLLO$"))))
           (setq text (concat text (format "    - *%s*\n"
                                           (longman-lookup--get-node-text defnode))))
