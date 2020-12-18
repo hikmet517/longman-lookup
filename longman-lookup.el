@@ -18,6 +18,7 @@
 ;;   - a word with no sense etc.
 ;;   - good example: 'mind'
 ;;   - phrasal verbs: 'look up'
+;;   - 'render' includes both 'GramExa' and 'ColloExa'
 ;; * write dictionary
 ;;   - 'From Longman Dictionary of Contemporary English'
 ;;   - 'From Longman Business Dictionary'
@@ -71,18 +72,23 @@
         (indent ""))
     (dolist (node (dom-non-text-children sense))
       (cond
+
        ((string= (dom-attr node 'class) "DEF")
         (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n"))
         (setq indent (make-string 4 ?\s)))
+
        ((string= (dom-attr node 'class) "EXAMPLE")
         (setq text (concat text indent "- " (longman-lookup--get-node-text node) "\n")))
-       ((string= (dom-attr node 'class) "GramExa")
-        (setq text (concat text (format "    - *%s*\n"
-                                                (longman-lookup--get-node-text
-                                                 (dom-by-class node "PROPFORM")))))
-        (setq indent (make-string 6 ?\s))
-        (dolist (ex (dom-by-class node "^EXAMPLE$"))
-          (setq text (concat text indent "- " (longman-lookup--get-node-text ex) "\n"))))
+
+       ((or (string= (dom-attr node 'class) "GramExa")
+            (string= (dom-attr node 'class) "ColloExa"))
+        (let* ((defnode (or (dom-by-class node "^PROPFORM$")
+                            (dom-by-class node "^COLLO$"))))
+          (setq text (concat text (format "    - *%s*\n"
+                                          (longman-lookup--get-node-text defnode))))
+          (setq indent (make-string 6 ?\s))
+          (dolist (ex (dom-by-class node "^EXAMPLE$"))
+            (setq text (concat text indent "- " (longman-lookup--get-node-text ex) "\n")))))
        ((string= (dom-attr node 'class) "Subsense")
         (setq text (concat text (longman-lookup--parse-sense node))))
        ((string= (dom-attr node 'class) "Crossref")
@@ -111,8 +117,8 @@
 (defun longman-lookup (word)
   "Fetch the definition of WORD from 'ldoceonline.com' and display it in an `org-mode' buffer."
   (interactive (list
-                (let ((w (if (region-active-p)
-                             (buffer-substring-no-properties (mark) (point))
+                (let ((w (if (use-region-p)
+                             (buffer-substring-no-properties (region-beginning) (region-end))
                            (thing-at-point 'word))))
                   (if w (read-string (format "Enter word (%s): " w) nil nil w)
                     (read-string "Enter word: ")))))
