@@ -101,7 +101,7 @@
   "Parse the entry ENTRY."
   (let* ((pos (string-trim (dom-text (car (dom-by-class entry "^POS$")))))
          (senses (dom-by-class entry "^Sense$"))
-         (word (dom-text (car (dom-by-class entry "HWD$"))))
+         (word (longman-lookup--get-node-text (car (dom-by-class entry "HWD$"))))
          (entry-header (concat "* "
                                word
                                (unless (string-empty-p pos) (format " (%s)" pos))
@@ -114,6 +114,7 @@
     (if (string-empty-p entry-text)
         nil
       (concat entry-header entry-text))))
+
 
 ;;;###autoload
 (defun longman-lookup (word)
