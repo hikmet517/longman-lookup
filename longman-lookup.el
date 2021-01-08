@@ -38,21 +38,22 @@
 
 
 ;;;; Variables
+(defvar current-url nil "Current url, becomes buffer-local.")
+
 (defvar read-only-org-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "q" 'quit-window)
-    (define-key map " " 'scroll-up-command)
-    (define-key map [?\S-\ ] 'scroll-down-command)
-    (define-key map "\C-?" 'scroll-down-command)
     (define-key map "?" 'describe-mode)
     (define-key map "h" 'describe-mode)
     (define-key map ">" 'end-of-buffer)
     (define-key map "<" 'beginning-of-buffer)
-    (define-key map "g" 'revert-buffer)
+    (define-key map "b" 'longman-lookup-browse)
     map))
 
 (define-derived-mode read-only-org-mode org-mode "Read-Only Org"
-  "Major mode used in longman-lookup."
+  "Major mode used in longman-lookup.
+
+\\{read-only-org-mode}"
   (org-show-all)
   (goto-char (point-min))
   (setq buffer-read-only t)
@@ -60,6 +61,11 @@
 
 
 ;;;; Functions
+(defun longman-lookup-browse ()
+  "Browser url for current buffer."
+  (interactive)
+  (browse-url current-url))
+
 (defun longman-lookup--get-node-text (n)
   "Get text inside node N (escaping &nbsp and multiple spaces)."
   (string-trim (replace-regexp-in-string
@@ -148,11 +154,11 @@
     ;; result buffer
     (let ((buf (get-buffer-create (format "*ldoce <%s>*" header))))
       (with-current-buffer buf
-        (when buffer-read-only
-          (setq buffer-read-only nil)
-          (erase-buffer))
-        (insert entries-text)
-        (read-only-org-mode))
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (insert entries-text)
+          (read-only-org-mode))
+        (set (make-local-variable 'current-url) u))
       (display-buffer buf))))
 
 (provide 'longman-lookup)
