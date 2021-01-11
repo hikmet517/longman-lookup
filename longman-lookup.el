@@ -10,9 +10,6 @@
 ;; containing definitions.
 
 ;;; TODO:
-;; * some entries have only references
-;;   these are ignored now, a better way?
-;;   - https://www.ldoceonline.com/dictionary/beyond
 ;; * write tests (ERT), find examples
 ;;   - a word with no entry but ref
 ;;   - a word with no sense etc.
@@ -20,6 +17,7 @@
 ;;   - phrasal verbs: 'look up'
 ;;   - 'render' includes both 'GramExa' and 'ColloExa'
 ;;   - 'evasive' 'PROPFORMPREP'
+;;   - 'beyond' includes 'REFHWD'
 ;; * write dictionary
 ;;   - 'From Longman Dictionary of Contemporary English'
 ;;   - 'From Longman Business Dictionary'
@@ -40,6 +38,8 @@
 ;;;; Variables
 (defvar current-url nil "Current url, becomes buffer-local.")
 
+(defvar current-word nil "Current word, becomes buffer-local.")
+
 (defvar read-only-org-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "q" 'quit-window)
@@ -48,19 +48,43 @@
     (define-key map ">" 'end-of-buffer)
     (define-key map "<" 'beginning-of-buffer)
     (define-key map "b" 'longman-lookup-browse)
+    (define-key map "s" 'longman-lookup-save-buffer)
     map))
 
 (define-derived-mode read-only-org-mode org-mode "Read-Only Org"
   "Major mode used in longman-lookup.
 
-\\{read-only-org-mode}"
+\\{read-only-org-mode-map}"
   (org-show-all)
   (goto-char (point-min))
   (setq buffer-read-only t)
   (set-buffer-modified-p nil))
 
 
+;;;; User options
+(defgroup longman-lookup nil
+  "longman-lookup customization."
+  :group 'longman-lookup
+  :prefix "longman-lookup-"
+  :link '(url-link "https://github.com/hikmet517/longman-lookup.el"))
+
+(defcustom longman-lookup-save-dir "~/Documents/words/"
+  "Directory to save words."
+  :type 'directory
+  :group 'longman-lookup)
+
+
 ;;;; Functions
+(defun longman-lookup-save-buffer ()
+  "Save the current buffer under `longman-lookup-save-dir'."
+  (interactive)
+  (when (string-empty-p longman-lookup-save-dir)
+    (error "Save directory is empty"))
+  (when (file-readable-p longman-lookup-save-dir)
+    (make-directory longman-lookup-save-dir t))
+  (write-file (concat (expand-file-name current-word longman-lookup-save-dir) ".org") nil)
+  (read-only-org-mode))
+
 (defun longman-lookup-browse ()
   "Browser url for current buffer."
   (interactive)
@@ -158,7 +182,8 @@
           (erase-buffer)
           (insert entries-text)
           (read-only-org-mode))
-        (set (make-local-variable 'current-url) u))
+        (set (make-local-variable 'current-url) u)
+        (set (make-local-variable 'current-word) word))
       (display-buffer buf))))
 
 (provide 'longman-lookup)
