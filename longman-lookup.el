@@ -36,6 +36,9 @@
 
 
 ;;;; Variables
+(defconst longman-lookup-buffer-format "*ldoce <%s>*"
+  "Format for buffer names.")
+
 (defvar current-url nil "Current url, becomes buffer-local.")
 
 (defvar current-word nil "Current word, becomes buffer-local.")
@@ -47,6 +50,8 @@
     (define-key map "h" 'describe-mode)
     (define-key map ">" 'end-of-buffer)
     (define-key map "<" 'beginning-of-buffer)
+    (define-key map " " 'scroll-up-command)
+    (define-key map [?\S-\ ] 'scroll-down-command)
     (define-key map "b" 'longman-lookup-browse)
     (define-key map "s" 'longman-lookup-save-buffer)
     map))
@@ -82,8 +87,11 @@
     (error "Save directory is empty"))
   (when (file-readable-p longman-lookup-save-dir)
     (make-directory longman-lookup-save-dir t))
-  (write-file (concat (expand-file-name current-word longman-lookup-save-dir) ".org") nil)
-  (read-only-org-mode))
+  (let ((word current-word)
+        (filepath (concat (expand-file-name current-word
+                                            longman-lookup-save-dir)
+                          ".org")))
+    (write-region (point-min) (point-max) filepath)))
 
 (defun longman-lookup-browse ()
   "Browser url for current buffer."
@@ -129,7 +137,8 @@
 
 (defun longman-lookup--parse-entry (entry)
   "Parse the entry ENTRY."
-  (let* ((pos (string-trim (dom-text (car (dom-by-class entry "^POS$")))))
+  (let* (;; (dict (string-trim (dom-text (car (dom-by-class entry "dictionary_intro")))))
+         (pos (string-trim (dom-text (car (dom-by-class entry "^POS$")))))
          (senses (dom-by-class entry "^Sense$"))
          (word (longman-lookup--get-node-text (car (dom-by-class entry "HWD$"))))
          (entry-header (concat "* "
@@ -152,7 +161,7 @@
   (interactive (list
                 (let ((w (if (use-region-p)
                              (buffer-substring-no-properties (region-beginning) (region-end))
-                           (thing-at-point 'word))))
+                           (thing-at-point 'word t))))
                   (if w (read-string (format "Enter word (%s): " w) nil nil w)
                     (read-string "Enter word: ")))))
   (let* ((entries-text nil)
@@ -176,7 +185,7 @@
         (setq entries-text (mapconcat #'longman-lookup--parse-entry entries "")))
       (kill-buffer))
     ;; result buffer
-    (let ((buf (get-buffer-create (format "*ldoce <%s>*" header))))
+    (let ((buf (get-buffer-create (format longman-lookup-buffer-format header))))
       (with-current-buffer buf
         (let ((inhibit-read-only t))
           (erase-buffer)
