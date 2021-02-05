@@ -80,6 +80,14 @@
 
 
 ;;;; Functions
+(defun longman-lookup-validate-filename (f)
+  ;; https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+  (thread-last
+      f
+    (replace-regexp-in-string "\[/\\\]" "-")
+    (replace-regexp-in-string "\[<>:\"\|\?\*\]" " ")
+    (replace-regexp-in-string "[[:blank:]]+" " ")))
+
 (defun longman-lookup-save-buffer ()
   "Save the current buffer under `longman-lookup-save-dir'."
   (interactive)
@@ -87,10 +95,11 @@
     (error "Save directory is empty"))
   (when (file-readable-p longman-lookup-save-dir)
     (make-directory longman-lookup-save-dir t))
-  (let ((word current-word)
-        (filepath (concat (expand-file-name current-word
-                                            longman-lookup-save-dir)
-                          ".org")))
+  (when (null current-word)
+    (error "No word in buffer"))
+  (pp current-word)
+  (let* ((word (longman-lookup-validate-filename (concat current-word ".org")))
+         (filepath (expand-file-name word longman-lookup-save-dir)))
     (write-region (point-min) (point-max) filepath)))
 
 (defun longman-lookup-browse ()
@@ -100,10 +109,8 @@
 
 (defun longman-lookup--get-node-text (n)
   "Get text inside node N (escaping &nbsp and multiple spaces)."
-  (string-trim (replace-regexp-in-string
-                " +"
-                " "
-                (replace-regexp-in-string " " " " (dom-texts n "")))))
+  (let ((s (replace-regexp-in-string " " " " (dom-texts n ""))))
+    (string-trim (replace-regexp-in-string "[[:blank:]]+" " " s))))
 
 (defun longman-lookup--parse-sense (sense)
   "Parse SENSE nodes."
@@ -111,7 +118,6 @@
         (indent ""))
     (dolist (node (dom-non-text-children sense))
       (cond
-
        ((string= (dom-attr node 'class) "DEF")
         (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n"))
         (setq indent (make-string 4 ?\s)))
@@ -159,18 +165,24 @@
 (defun longman-lookup (word)
   "Fetch the definition of WORD from 'ldoceonline.com' and display it in an `org-mode' buffer."
   (interactive (list
-                (let ((w (if (use-region-p)
-                             (buffer-substring-no-properties (region-beginning) (region-end))
-                           (thing-at-point 'word t))))
-                  (if w (read-string (format "Enter word (%s): " w) nil nil w)
+                (let* ((w (if (use-region-p)
+                              (buffer-substring-no-properties (region-beginning) (region-end))
+                            (thing-at-point 'word t)))
+                       (ww (when w (string-trim w))))
+                  (if (and ww (not (string-empty-p ww)))
+                      (read-string (format "Enter word (%s): " ww) nil nil ww)
                     (read-string "Enter word: ")))))
-  (let* ((entries-text nil)
+  ;; fetch
+  (let* ((word (downcase word))
+         (entries-text nil)
          (header nil)
          (u (concat "https://www.ldoceonline.com/search/english/direct/?q="
                     (replace-regexp-in-string " " "+" word)))
          (temp-buf (url-retrieve-synchronously u)))
     (unless temp-buf
       (error "Fetch failed: %s" u))
+
+    ;; parse
     (with-current-buffer temp-buf
       (let* ((tree (libxml-parse-html-region (point-min) (point-max)))
              (entries (dom-by-class tree "^dictentry$")))
@@ -184,6 +196,7 @@
           (error "Word not found: %s" word))
         (setq entries-text (mapconcat #'longman-lookup--parse-entry entries "")))
       (kill-buffer))
+
     ;; result buffer
     (let ((buf (get-buffer-create (format longman-lookup-buffer-format header))))
       (with-current-buffer buf
@@ -192,7 +205,7 @@
           (insert entries-text)
           (read-only-org-mode))
         (set (make-local-variable 'current-url) u)
-        (set (make-local-variable 'current-word) word))
+        (set (make-local-variable 'current-word) header))
       (display-buffer buf))))
 
 (provide 'longman-lookup)
