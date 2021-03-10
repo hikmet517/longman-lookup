@@ -82,11 +82,12 @@
 ;;;; Functions
 (defun longman-lookup-validate-filename (f)
   ;; https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
-  (thread-last
-      f
-    (replace-regexp-in-string "\[/\\\]" "-")
-    (replace-regexp-in-string "\[<>:\"\|\?\*\]" " ")
-    (replace-regexp-in-string "[[:blank:]]+" " ")))
+  (string-trim
+   (thread-last
+       f
+     (replace-regexp-in-string "\[/\\\]" "-")
+     (replace-regexp-in-string "\[<>:\"\|\?\*\n\]" " ")
+     (replace-regexp-in-string "[[:blank:]]+" " "))))
 
 (defun longman-lookup-save-buffer ()
   "Save the current buffer under `longman-lookup-save-dir'."
@@ -100,7 +101,9 @@
   (pp current-word)
   (let* ((word (longman-lookup-validate-filename (concat current-word ".org")))
          (filepath (expand-file-name word longman-lookup-save-dir)))
-    (write-region (point-min) (point-max) filepath)))
+    (if (file-exists-p filepath)
+        (error "File already exists")
+        (write-region (point-min) (point-max) filepath))))
 
 (defun longman-lookup-browse ()
   "Browser url for current buffer."
