@@ -22,6 +22,9 @@
 ;;   - 'From Longman Dictionary of Contemporary English'
 ;;   - 'From Longman Business Dictionary'
 ;; * indentation in 'meddle'
+;; * blank return for 'tamper'
+;;   There is only Crossref not anything under 'sense',
+;; but we only parse Crossrefs in sense.
 
 
 ;;; Code:
@@ -54,6 +57,7 @@
     (define-key map [?\S-\ ] 'scroll-down-command)
     (define-key map "b" 'longman-lookup-browse)
     (define-key map "s" 'longman-lookup-save-buffer)
+    (define-key map "o" 'longman-open-file)
     map))
 
 (define-derived-mode read-only-org-mode org-mode "Read-Only Org"
@@ -103,7 +107,16 @@
          (filepath (expand-file-name word longman-lookup-save-dir)))
     (if (file-exists-p filepath)
         (error "File already exists")
-        (write-region (point-min) (point-max) filepath))))
+      (write-region (point-min) (point-max) filepath))))
+
+(defun longman-open-file ()
+  "Open current document from disk, if it is saved."
+  (interactive)
+  (let* ((word (longman-lookup-validate-filename (concat current-word ".org")))
+         (filepath (expand-file-name word longman-lookup-save-dir)))
+    (if (not (file-exists-p filepath))
+        (error "File does not exist")
+      (find-file filepath))))
 
 (defun longman-lookup-browse ()
   "Browser url for current buffer."
