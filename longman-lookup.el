@@ -11,20 +11,9 @@
 
 ;;; TODO:
 ;; * write tests (ERT), find examples
-;;   - a word with no entry but ref
+;;   - a word with no entry but ref (pander)
 ;;   - a word with no sense etc.
-;;   - good example: 'mind'
-;;   - phrasal verbs: 'look up'
-;;   - 'render' includes both 'GramExa' and 'ColloExa'
-;;   - 'evasive' 'PROPFORMPREP'
-;;   - 'beyond' includes 'REFHWD'
-;; * write dictionary
-;;   - 'From Longman Dictionary of Contemporary English'
-;;   - 'From Longman Business Dictionary'
-;; * indentation in 'meddle'
-;; * blank return for 'tamper'
-;;   There is only Crossref not anything under 'sense',
-;; but we only parse Crossrefs in sense.
+;;   - good examples: mind, render, evasive, beyond, meddle, look up, pander
 
 
 ;;; Code:
@@ -84,8 +73,9 @@
 
 
 ;;;; Functions
-(defun longman-lookup-validate-filename (f)
-  ;; https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+(defun longman-lookup--validate-filename (f)
+  "Validate filename F by removing illegal characters.
+https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions"
   (string-trim
    (thread-last
        f
@@ -98,12 +88,11 @@
   (interactive)
   (when (string-empty-p longman-lookup-save-dir)
     (error "Save directory is empty"))
-  (when (file-readable-p longman-lookup-save-dir)
+  (when (not (file-readable-p longman-lookup-save-dir))
     (make-directory longman-lookup-save-dir t))
   (when (null current-word)
     (error "No word in buffer"))
-  (pp current-word)
-  (let* ((word (longman-lookup-validate-filename (concat current-word ".org")))
+  (let* ((word (longman-lookup--validate-filename (concat current-word ".org")))
          (filepath (expand-file-name word longman-lookup-save-dir)))
     (if (file-exists-p filepath)
         (error "File already exists")
@@ -112,7 +101,7 @@
 (defun longman-open-file ()
   "Open current document from disk, if it is saved."
   (interactive)
-  (let* ((word (longman-lookup-validate-filename (concat current-word ".org")))
+  (let* ((word (longman-lookup--validate-filename (concat current-word ".org")))
          (filepath (expand-file-name word longman-lookup-save-dir)))
     (if (not (file-exists-p filepath))
         (error "File does not exist")
@@ -137,10 +126,8 @@
        ((string= (dom-attr node 'class) "DEF")
         (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n"))
         (setq indent (make-string 4 ?\s)))
-
        ((string= (dom-attr node 'class) "EXAMPLE")
         (setq text (concat text indent "- " (longman-lookup--get-node-text node) "\n")))
-
        ((or (string= (dom-attr node 'class) "GramExa")
             (string= (dom-attr node 'class) "ColloExa"))
         (let* ((defnode (or (dom-by-class node "^PROPFORM$")
@@ -159,15 +146,22 @@
 
 (defun longman-lookup--parse-entry (entry)
   "Parse the entry ENTRY."
-  (let* (;; (dict (string-trim (dom-text (car (dom-by-class entry "dictionary_intro")))))
+  (let* ((word (longman-lookup--get-node-text (car (dom-by-class entry "HWD$"))))
+         (dictionary (longman-lookup--get-node-text
+                      (car (dom-by-class entry "dictionary_intro"))))
          (pos (string-trim (dom-text (car (dom-by-class entry "^POS$")))))
-         (senses (dom-by-class entry "^Sense$"))
-         (word (longman-lookup--get-node-text (car (dom-by-class entry "HWD$"))))
          (entry-header (concat "* "
                                word
                                (unless (string-empty-p pos) (format " (%s)" pos))
+                               (when (and
+                                      (not (string= dictionary ""))
+                                      (not (string= dictionary "From Longman Dictionary of Contemporary English")))
+                                 (format " [%s]" (string-remove-prefix "From Longman "
+                                                                       dictionary)))
                                ":\n"))
-         (entry-text ""))
+         (entry-text "")
+         (senses (append (dom-by-class entry "^Sense$") (dom-by-class entry "^Tail$"))))
+    (message dictionary)
     (dolist (sense senses)
       (let ((sense-text (longman-lookup--parse-sense sense)))
         (unless (string-empty-p sense-text)
@@ -175,7 +169,6 @@
     (if (string-empty-p entry-text)
         nil
       (concat entry-header entry-text))))
-
 
 ;;;###autoload
 (defun longman-lookup (word)
