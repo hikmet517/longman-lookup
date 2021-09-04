@@ -126,6 +126,10 @@ https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conve
        ((string= (dom-attr node 'class) "DEF")
         (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n"))
         (setq indent (make-string 4 ?\s)))
+       ((string= (dom-attr node 'class) "RELATEDWD")
+        (setq text (concat (string-remove-suffix "\n" text)
+                           " "
+                           (longman-lookup--get-node-text node) "\n")))
        ((string= (dom-attr node 'class) "EXAMPLE")
         (setq text (concat text indent "- " (longman-lookup--get-node-text node) "\n")))
        ((or (string= (dom-attr node 'class) "GramExa")
