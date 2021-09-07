@@ -31,9 +31,9 @@
 (defconst longman-lookup-buffer-format "*ldoce <%s>*"
   "Format for buffer names.")
 
-(defvar current-url nil "Current url, becomes buffer-local.")
+(defvar-local current-url nil "Current url.")
 
-(defvar current-word nil "Current word, becomes buffer-local.")
+(defvar-local current-word nil "Current word.")
 
 (defvar read-only-org-mode-map
   (let ((map (make-sparse-keymap)))
@@ -46,7 +46,7 @@
     (define-key map [?\S-\ ] 'scroll-down-command)
     (define-key map "b" 'longman-lookup-browse)
     (define-key map "s" 'longman-lookup-save-buffer)
-    (define-key map "o" 'longman-open-file)
+    (define-key map "o" 'longman-lookup-open-file)
     map))
 
 (define-derived-mode read-only-org-mode org-mode "Read-Only Org"
@@ -61,7 +61,7 @@
 
 ;;;; User options
 (defgroup longman-lookup nil
-  "longman-lookup customization."
+  "Lookup words in Longman English Dictionary."
   :group 'longman-lookup
   :prefix "longman-lookup-"
   :link '(url-link "https://github.com/hikmet517/longman-lookup.el"))
@@ -75,7 +75,7 @@
 ;;;; Functions
 (defun longman-lookup--validate-filename (f)
   "Validate filename F by removing illegal characters.
-https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions"
+URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions'"
   (string-trim
    (thread-last
        f
@@ -98,7 +98,7 @@ https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conve
         (error "File already exists")
       (write-region (point-min) (point-max) filepath))))
 
-(defun longman-open-file ()
+(defun longman-lookup-open-file ()
   "Open current document from disk, if it is saved."
   (interactive)
   (let* ((word (longman-lookup--validate-filename (concat current-word ".org")))
