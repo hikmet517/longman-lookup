@@ -35,6 +35,10 @@
 
 (defvar-local current-word nil "Current word.")
 
+(defconst longman-direct-url "https://www.ldoceonline.com/dictionary/")
+
+(defconst longman-search-url "https://www.ldoceonline.com/search/english/direct/?q=")
+
 (defvar read-only-org-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "q" 'quit-window)
@@ -56,7 +60,11 @@
   (org-show-all)
   (goto-char (point-min))
   (setq buffer-read-only t)
-  (set-buffer-modified-p nil))
+  (set-buffer-modified-p nil)
+  (let ((filename (buffer-file-name)))
+    (when filename
+      (setq current-word (file-name-base (buffer-file-name)))
+      (setq current-url (concat longman-direct-url (string-replace " " "-" current-word))))))
 
 
 ;;;; User options
@@ -108,13 +116,13 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
       (find-file filepath))))
 
 (defun longman-lookup-browse ()
-  "Browser url for current buffer."
+  "Browser url for current 'read-only org' buffer."
   (interactive)
   (browse-url current-url))
 
 (defun longman-lookup--get-node-text (n)
   "Get text inside node N (escaping &nbsp and multiple spaces)."
-  (let ((s (replace-regexp-in-string " " " " (dom-texts n ""))))
+  (let ((s (string-replace " " " " (dom-texts n ""))))
     (string-trim (replace-regexp-in-string "[[:blank:]]+" " " s))))
 
 (defun longman-lookup--parse-sense (sense)
@@ -165,7 +173,6 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                                ":\n"))
          (entry-text "")
          (senses (append (dom-by-class entry "^Sense$") (dom-by-class entry "^Tail$"))))
-    (message dictionary)
     (dolist (sense senses)
       (let ((sense-text (longman-lookup--parse-sense sense)))
         (unless (string-empty-p sense-text)
@@ -174,26 +181,14 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
         nil
       (concat entry-header entry-text))))
 
-;;;###autoload
-(defun longman-lookup (word)
-  "Fetch the definition of WORD from 'ldoceonline.com' and display it in an `org-mode' buffer."
-  (interactive (list
-                (let* ((w (if (use-region-p)
-                              (buffer-substring-no-properties (region-beginning) (region-end))
-                            (thing-at-point 'word t)))
-                       (ww (when w (string-trim w))))
-                  (if (and ww (not (string-empty-p ww)))
-                      (read-string (format "Enter word (%s): " ww) nil nil ww)
-                    (read-string "Enter word: ")))))
+(defun longman-lookup-fetch-parse-display (url)
+  "Fetch URL, parse it, display it."
   ;; fetch
-  (let* ((word (downcase word))
-         (entries-text nil)
+  (let* ((entries-text nil)
          (header nil)
-         (u (concat "https://www.ldoceonline.com/search/english/direct/?q="
-                    (replace-regexp-in-string " " "+" word)))
-         (temp-buf (url-retrieve-synchronously u)))
+         (temp-buf (url-retrieve-synchronously url)))
     (unless temp-buf
-      (error "Fetch failed: %s" u))
+      (error "Fetch failed: %s" url))
 
     ;; parse
     (with-current-buffer temp-buf
@@ -206,7 +201,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                   (null entries)
                   (string-prefix-p "Sorry, there are no results for" header)
                   (string-prefix-p "Did you mean" header))
-          (error "Word not found: %s" word))
+          (error "Word not found"))
         (setq entries-text (mapconcat #'longman-lookup--parse-entry entries "")))
       (kill-buffer))
 
@@ -217,9 +212,43 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
           (erase-buffer)
           (insert entries-text)
           (read-only-org-mode))
-        (set (make-local-variable 'current-url) u)
-        (set (make-local-variable 'current-word) header))
+        ;; set local-variables
+        (setq current-word header)
+        (setq current-url (concat longman-direct-url (string-replace " " "-" current-word))))
       (display-buffer buf))))
+
+;;;###autoload
+(defun longman-lookup (word)
+  "Get the definition of WORD from 'ldoceonline.com' and display it in an `org-mode' buffer."
+  (interactive (list
+                (let* ((w (if (use-region-p)
+                              (buffer-substring-no-properties (region-beginning) (region-end))
+                            (thing-at-point 'word t)))
+                       (ww (when w (string-trim w))))
+                  (if (and ww (not (string-empty-p ww)))
+                      (read-string (format "Enter word (%s): " ww) nil nil ww)
+                    (read-string "Enter word: ")))))
+  (let* ((url (concat longman-search-url (string-replace " " "+" word))))
+    (longman-lookup-fetch-parse-display url)))
+
+;;;###autoload
+(defun longman-lookup-go-to-word (word)
+  "Get the definition of WORD directly (without searching)."
+  (interactive (list
+                (let* ((w (if (use-region-p)
+                              (buffer-substring-no-properties (region-beginning) (region-end))
+                            (let* ((line (thing-at-point 'line t))
+                                   (i (string-match "→" line)))
+                              (when i
+                                (string-trim (substring-no-properties line (1+ i)))))))
+                       (ww (when w (string-trim w))))
+                  (if (and ww (not (string-empty-p ww)))
+                      (read-string (format "Enter word (%s): " ww) nil nil ww)
+                    (read-string "Enter word: ")))))
+  (let ((url (concat longman-direct-url (string-replace " " "-" word))))
+    (longman-lookup-fetch-parse-display url)
+    (setq current-word word)
+    (setq current-url url)))
 
 (provide 'longman-lookup)
 ;;; longman-lookup.el ends here
