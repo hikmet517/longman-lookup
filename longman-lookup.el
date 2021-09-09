@@ -181,13 +181,17 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
         nil
       (concat entry-header entry-text))))
 
-(defun longman-lookup--parse-display-cb (_status)
-  "Callback function for `url-retrieve', parse output, display it."
+(defun longman-lookup--parse-display-cb (status)
+  "Callback function for `url-retrieve', check STATUS, parse output, display it."
   ;; fetch
   (let* ((entries-text nil)
          (header nil))
+    (let ((err (plist-get status :error)))
+      (when err
+        (error "Fetch failed")
+        (pp err)))
     (unless (current-buffer)
-      (error "Fetch failed"))
+      (error "Fetch failed, no buffer"))
 
     ;; parse
     (let* ((tree (libxml-parse-html-region (point-min) (point-max)))
@@ -243,7 +247,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                   (if (and ww (not (string-empty-p ww)))
                       (read-string (format "Enter word (%s): " ww) nil nil ww)
                     (read-string "Enter word: ")))))
-  (let ((url (concat longman-direct-url (string-replace " " "-" word))))
+  (let ((url (concat longman-direct-url (replace-regexp-in-string "[ /]" "-" word))))
     (url-retrieve url #'longman-lookup--parse-display-cb)
     (setq current-word word)
     (setq current-url url)))
