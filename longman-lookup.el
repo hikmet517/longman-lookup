@@ -181,29 +181,27 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
         nil
       (concat entry-header entry-text))))
 
-(defun longman-lookup-fetch-parse-display (url)
-  "Fetch URL, parse it, display it."
+(defun longman-lookup--parse-display-cb (_status)
+  "Callback function for `url-retrieve', parse output, display it."
   ;; fetch
   (let* ((entries-text nil)
-         (header nil)
-         (temp-buf (url-retrieve-synchronously url)))
-    (unless temp-buf
-      (error "Fetch failed: %s" url))
+         (header nil))
+    (unless (current-buffer)
+      (error "Fetch failed"))
 
     ;; parse
-    (with-current-buffer temp-buf
-      (let* ((tree (libxml-parse-html-region (point-min) (point-max)))
-             (entries (dom-by-class tree "^dictentry$")))
-        (when (null tree)
-          (error "Parse failed"))
-        (setq header (longman-lookup--get-node-text (car (dom-by-tag tree 'h1))))
-        (when (or (null header)
-                  (null entries)
-                  (string-prefix-p "Sorry, there are no results for" header)
-                  (string-prefix-p "Did you mean" header))
-          (error "Word not found"))
-        (setq entries-text (mapconcat #'longman-lookup--parse-entry entries "")))
-      (kill-buffer))
+    (let* ((tree (libxml-parse-html-region (point-min) (point-max)))
+           (entries (dom-by-class tree "^dictentry$")))
+      (when (null tree)
+        (error "Parse failed"))
+      (setq header (longman-lookup--get-node-text (car (dom-by-tag tree 'h1))))
+      (when (or (null header)
+                (null entries)
+                (string-prefix-p "Sorry, there are no results for" header)
+                (string-prefix-p "Did you mean" header))
+        (error "Word not found"))
+      (setq entries-text (mapconcat #'longman-lookup--parse-entry entries "")))
+    (kill-buffer)
 
     ;; result buffer
     (let ((buf (get-buffer-create (format longman-lookup-buffer-format header))))
@@ -229,7 +227,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                       (read-string (format "Enter word (%s): " ww) nil nil ww)
                     (read-string "Enter word: ")))))
   (let* ((url (concat longman-search-url (string-replace " " "+" word))))
-    (longman-lookup-fetch-parse-display url)))
+    (url-retrieve url #'longman-lookup--parse-display-cb)))
 
 ;;;###autoload
 (defun longman-lookup-go-to-word (word)
@@ -246,7 +244,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                       (read-string (format "Enter word (%s): " ww) nil nil ww)
                     (read-string "Enter word: ")))))
   (let ((url (concat longman-direct-url (string-replace " " "-" word))))
-    (longman-lookup-fetch-parse-display url)
+    (url-retrieve url #'longman-lookup--parse-display-cb)
     (setq current-word word)
     (setq current-url url)))
 
