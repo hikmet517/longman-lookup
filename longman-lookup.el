@@ -81,6 +81,10 @@
 
 
 ;;;; Functions
+(when (not (fboundp 'string-replace))
+  (fset 'string-replace #'(lambda (reg rep str)
+                            (replace-regexp-in-string (regexp-quote reg) rep str))))
+
 (defun longman-lookup--validate-filename (f)
   "Validate filename F by removing illegal characters.
 URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions'"
