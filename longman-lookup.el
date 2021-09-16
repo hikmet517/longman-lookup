@@ -14,6 +14,7 @@
 ;;   - a word with no entry but ref (pander)
 ;;   - a word with no sense etc.
 ;;   - good examples: mind, render, evasive, beyond, meddle, look up, pander
+;; * make references org links
 
 
 ;;; Code:
@@ -219,8 +220,12 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
           (insert entries-text)
           (read-only-org-mode))
         ;; set local-variables
-        (setq current-word header)
-        (setq current-url (concat longman-direct-url (string-replace " " "-" current-word))))
+        (if-let (last-url (plist-get status :redirect))
+            (progn
+              (setq current-word (car (last (split-string last-url "/"))))
+              (setq current-url last-url))
+          (setq current-word header)
+          (setq current-url (concat longman-direct-url current-word))))
       (display-buffer buf))))
 
 ;;;###autoload
@@ -234,7 +239,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                   (if (and ww (not (string-empty-p ww)))
                       (read-string (format "Enter word (%s): " ww) nil nil ww)
                     (read-string "Enter word: ")))))
-  (let* ((url (concat longman-search-url (string-replace " " "+" word))))
+  (let* ((url (concat longman-search-url word)))
     (url-retrieve url #'longman-lookup--parse-display-cb)))
 
 ;;;###autoload
@@ -251,10 +256,8 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                   (if (and ww (not (string-empty-p ww)))
                       (read-string (format "Enter word (%s): " ww) nil nil ww)
                     (read-string "Enter word: ")))))
-  (let ((url (concat longman-direct-url (replace-regexp-in-string "[ /]" "-" word))))
-    (url-retrieve url #'longman-lookup--parse-display-cb)
-    (setq current-word word)
-    (setq current-url url)))
+  (let ((url (concat longman-direct-url (replace-regexp-in-string "[ /'’]" "-" word))))
+    (url-retrieve url #'longman-lookup--parse-display-cb)))
 
 (provide 'longman-lookup)
 ;;; longman-lookup.el ends here
