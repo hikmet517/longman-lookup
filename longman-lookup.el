@@ -14,7 +14,7 @@
 ;;   - a word with no entry but ref (pander)
 ;;   - a word with no sense etc.
 ;;   - good examples: mind, render, evasive, beyond, meddle, look up, pander
-;; * make references org links
+;; * associate read-only-org mode with filenames (save as *.ro.org maybe?)
 
 
 ;;; Code:
@@ -36,9 +36,13 @@
 
 (defvar-local current-word nil "Current word.")
 
-(defconst longman-direct-url "https://www.ldoceonline.com/dictionary/")
+(defconst longman-base-url "https://www.ldoceonline.com")
 
-(defconst longman-search-url "https://www.ldoceonline.com/search/english/direct/?q=")
+(defconst longman-direct-url (concat longman-base-url "/dictionary/"))
+
+(defconst longman-search-url (concat longman-base-url "/search/english/direct/?q="))
+
+(defconst longman-org-link-regexp (rx "[" "[" (group (+ not-newline)) "]" "[" (+ not-newline) "]" "]"))
 
 (defvar read-only-org-mode-map
   (let ((map (make-sparse-keymap)))
@@ -52,6 +56,7 @@
     (define-key map "b" 'longman-lookup-browse)
     (define-key map "s" 'longman-lookup-save-buffer)
     (define-key map "o" 'longman-lookup-open-file)
+    (define-key map [(control ?m)] 'longman-lookup-go-to-link)
     map))
 
 (define-derived-mode read-only-org-mode org-mode "Read-Only Org"
@@ -130,6 +135,13 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   (let ((s (string-replace " " " " (dom-texts n ""))))
     (string-trim (replace-regexp-in-string "[[:blank:]]+" " " s))))
 
+(defun longman-lookup--parse-crossref (node)
+  "Handle node with the class CROSSREF, return an org link with → in the beginning."
+  (let* ((a-elem (dom-by-tag node 'a))
+         (link (concat longman-base-url (cdr (assoc 'href (dom-attributes a-elem)))))
+         (text (longman-lookup--get-node-text (car (dom-by-class a-elem "^REFHWD$")))))
+    (concat "→ [" "[" link "]" "[" text "]" "]")))
+
 (defun longman-lookup--parse-sense (sense)
   "Parse SENSE nodes."
   (let ((text "")
@@ -158,7 +170,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
        ((string= (dom-attr node 'class) "Subsense")
         (setq text (concat text (longman-lookup--parse-sense node))))
        ((string= (dom-attr node 'class) "Crossref")
-        (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n")))))
+        (setq text (concat text "  * " (longman-lookup--parse-crossref node) "\n")))))
     text))
 
 (defun longman-lookup--parse-entry (entry)
@@ -243,21 +255,15 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
     (url-retrieve url #'longman-lookup--parse-display-cb)))
 
 ;;;###autoload
-(defun longman-lookup-go-to-word (word)
-  "Get the definition of WORD directly (without searching)."
-  (interactive (list
-                (let* ((w (if (use-region-p)
-                              (buffer-substring-no-properties (region-beginning) (region-end))
-                            (let* ((line (thing-at-point 'line t))
-                                   (i (string-match "→" line)))
-                              (when i
-                                (string-trim (substring-no-properties line (1+ i)))))))
-                       (ww (when w (string-trim w))))
-                  (if (and ww (not (string-empty-p ww)))
-                      (read-string (format "Enter word (%s): " ww) nil nil ww)
-                    (read-string "Enter word: ")))))
-  (let ((url (concat longman-direct-url (replace-regexp-in-string "[ /'’]" "-" word))))
-    (url-retrieve url #'longman-lookup--parse-display-cb)))
+(defun longman-lookup-go-to-link ()
+  "Go to link under the cursor."
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (when (re-search-forward longman-org-link-regexp nil t)
+      (let ((link (buffer-substring-no-properties (match-beginning 1)
+                                                  (match-end 1))))
+        (url-retrieve link #'longman-lookup--parse-display-cb)))))
 
 (provide 'longman-lookup)
 ;;; longman-lookup.el ends here
