@@ -14,7 +14,6 @@
 ;;   - a word with no entry but ref (pander)
 ;;   - a word with no sense etc.
 ;;   - good examples: mind, render, evasive, beyond, meddle, look up, pander
-;; * associate read-only-org mode with filenames (save as *.ro.org maybe?)
 
 
 ;;; Code:
@@ -28,7 +27,12 @@
 (require 'simple)
 
 
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.ro\\.org\\'" . read-only-org-mode))
+
+
 ;;;; Variables
+
 (defconst longman-lookup-buffer-format "*ldoce <%s>*"
   "Format for buffer names.")
 
@@ -55,25 +59,14 @@
     (define-key map [?\S-\ ] 'scroll-down-command)
     (define-key map "b" 'longman-lookup-browse)
     (define-key map "s" 'longman-lookup-save-buffer)
+    (define-key map "S" 'longman-lookup-save-buffer-overwrite)
     (define-key map "o" 'longman-lookup-open-file)
     (define-key map [(control ?m)] 'longman-lookup-go-to-link)
     map))
 
-(define-derived-mode read-only-org-mode org-mode "Read-Only Org"
-  "Major mode used in longman-lookup.
-
-\\{read-only-org-mode-map}"
-  (org-show-all)
-  (goto-char (point-min))
-  (setq buffer-read-only t)
-  (set-buffer-modified-p nil)
-  (let ((filename (buffer-file-name)))
-    (when filename
-      (setq current-word (file-name-base (buffer-file-name)))
-      (setq current-url (concat longman-direct-url (string-replace " " "-" current-word))))))
-
 
 ;;;; User options
+
 (defgroup longman-lookup nil
   "Lookup words in Longman English Dictionary."
   :group 'longman-lookup
@@ -87,6 +80,23 @@
 
 
 ;;;; Functions
+
+;;;###autoload
+(define-derived-mode read-only-org-mode org-mode "Read-Only Org"
+  "Major mode used in longman-lookup.
+
+\\{read-only-org-mode-map}"
+  (org-show-all)
+  (goto-char (point-min))
+  (setq buffer-read-only t)
+  (set-buffer-modified-p nil)
+  (let ((filename (buffer-file-name)))
+    (when filename
+      (setq current-word (string-trim-right (file-name-nondirectory (buffer-file-name))
+                                            "\\.ro\\.org"))
+      (setq current-url (concat longman-direct-url (string-replace " " "-" current-word))))))
+
+
 (when (not (fboundp 'string-replace))
   (fset 'string-replace #'(lambda (reg rep str)
                             (replace-regexp-in-string (regexp-quote reg) rep str))))
@@ -110,16 +120,31 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
     (make-directory longman-lookup-save-dir t))
   (when (null current-word)
     (error "No word in buffer"))
-  (let* ((word (longman-lookup--validate-filename (concat current-word ".org")))
+  (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
          (filepath (expand-file-name word longman-lookup-save-dir)))
     (if (file-exists-p filepath)
         (error "File already exists")
-      (write-region (point-min) (point-max) filepath))))
+      (write-file filepath nil)
+      (read-only-org-mode))))
+
+(defun longman-lookup-save-buffer-overwrite ()
+  "Save the current buffer under `longman-lookup-save-dir'."
+  (interactive)
+  (when (string-empty-p longman-lookup-save-dir)
+    (error "Save directory is empty"))
+  (when (not (file-readable-p longman-lookup-save-dir))
+    (make-directory longman-lookup-save-dir t))
+  (when (null current-word)
+    (error "No word in buffer"))
+  (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
+         (filepath (expand-file-name word longman-lookup-save-dir)))
+    (write-file filepath nil)
+    (read-only-org-mode)))
 
 (defun longman-lookup-open-file ()
   "Open current document from disk, if it is saved."
   (interactive)
-  (let* ((word (longman-lookup--validate-filename (concat current-word ".org")))
+  (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
          (filepath (expand-file-name word longman-lookup-save-dir)))
     (if (not (file-exists-p filepath))
         (error "File does not exist")
@@ -136,7 +161,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
     (string-trim (replace-regexp-in-string "[[:blank:]]+" " " s))))
 
 (defun longman-lookup--parse-crossref (node)
-  "Handle node with the class CROSSREF, return an org link with → in the beginning."
+  "Handle NODE which has a class CROSSREF, return an org link with → in the beginning."
   (let* ((a-elem (dom-by-tag node 'a))
          (link (concat longman-base-url (cdr (assoc 'href (dom-attributes a-elem)))))
          (text (longman-lookup--get-node-text (car (dom-by-class a-elem "^REFHWD$")))))
@@ -254,7 +279,6 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   (let* ((url (concat longman-search-url word)))
     (url-retrieve url #'longman-lookup--parse-display-cb)))
 
-;;;###autoload
 (defun longman-lookup-go-to-link ()
   "Go to link under the cursor."
   (interactive)
