@@ -25,6 +25,7 @@
 (require 'thingatpt)
 (require 'subr-x)
 (require 'simple)
+(require 'rx)
 
 
 ;;;###autoload
@@ -46,7 +47,8 @@
 
 (defconst longman-search-url (concat longman-base-url "/search/english/direct/?q="))
 
-(defconst longman-org-link-regexp (rx "[" "[" (group (+ not-newline)) "]" "[" (+ not-newline) "]" "]"))
+(defconst longman-org-link-regexp
+  (rx "[" "[" (group (+ not-newline)) "]" "[" (+ not-newline) "]" "]"))
 
 (defvar read-only-org-mode-map
   (let ((map (make-sparse-keymap)))
@@ -58,6 +60,7 @@
     (define-key map " " 'scroll-up-command)
     (define-key map [?\S-\ ] 'scroll-down-command)
     (define-key map "b" 'longman-lookup-browse)
+    (define-key map "e" 'longman-lookup-edit)
     (define-key map "s" 'longman-lookup-save-buffer)
     (define-key map "S" 'longman-lookup-save-buffer-overwrite)
     (define-key map "o" 'longman-lookup-open-file)
@@ -69,7 +72,7 @@
 
 (defgroup longman-lookup nil
   "Lookup words in Longman English Dictionary."
-  :group 'longman-lookup
+  :group 'convenience
   :prefix "longman-lookup-"
   :link '(url-link "https://github.com/hikmet517/longman-lookup.el"))
 
@@ -90,11 +93,10 @@
   (goto-char (point-min))
   (setq buffer-read-only t)
   (set-buffer-modified-p nil)
-  (let ((filename (buffer-file-name)))
-    (when filename
-      (setq current-word (string-trim-right (file-name-nondirectory (buffer-file-name))
-                                            "\\.ro\\.org"))
-      (setq current-url (concat longman-direct-url (string-replace " " "-" current-word))))))
+  (when buffer-file-name
+    (setq current-word (string-trim-right (file-name-nondirectory buffer-file-name)
+                                          "\\.ro\\.org"))
+    (setq current-url (concat longman-direct-url (string-replace " " "-" current-word)))))
 
 
 (when (not (fboundp 'string-replace))
@@ -111,6 +113,17 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
      (replace-regexp-in-string "\[<>:\"\|\?\*\n\]" " ")
      (replace-regexp-in-string "[[:blank:]]+" " "))))
 
+(defun longman-lookup-edit ()
+  "Inhibit read-only-mode"
+  (interactive)
+  (let ((name (buffer-name)))
+    (when (and (string-prefix-p "*" name)
+               (string-suffix-p "*" name))
+      (longman-lookup-save-buffer)
+      (longman-lookup-open-file)))
+  (setq buffer-read-only nil)
+  (org-mode))
+
 (defun longman-lookup-save-buffer ()
   "Save the current buffer under `longman-lookup-save-dir'."
   (interactive)
@@ -121,10 +134,10 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   (when (null current-word)
     (error "No word in buffer"))
   (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
-         (filepath (expand-file-name word longman-lookup-save-dir)))
-    (if (file-exists-p filepath)
-        (error "File already exists")
-      (write-file filepath nil)
+         (path (expand-file-name word longman-lookup-save-dir)))
+    (if (file-exists-p path)
+        (message "File already exists")
+      (write-file path nil)
       (read-only-org-mode))))
 
 (defun longman-lookup-save-buffer-overwrite ()
@@ -137,18 +150,19 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   (when (null current-word)
     (error "No word in buffer"))
   (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
-         (filepath (expand-file-name word longman-lookup-save-dir)))
-    (write-file filepath nil)
+         (path (expand-file-name word longman-lookup-save-dir)))
+    (write-file path nil)
     (read-only-org-mode)))
 
 (defun longman-lookup-open-file ()
   "Open current document from disk, if it is saved."
   (interactive)
   (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
-         (filepath (expand-file-name word longman-lookup-save-dir)))
-    (if (not (file-exists-p filepath))
+         (path (expand-file-name word longman-lookup-save-dir)))
+    (if (not (file-exists-p path))
         (error "File does not exist")
-      (find-file filepath))))
+      (message "Opening file \"%s\"" path)
+      (find-file path))))
 
 (defun longman-lookup-browse ()
   "Browser url for current 'read-only org' buffer."
@@ -278,6 +292,23 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                     (read-string "Enter word: ")))))
   (let* ((url (concat longman-search-url word)))
     (url-retrieve url #'longman-lookup--parse-display-cb)))
+
+;;;###autoload
+(defun longman-lookup-local-first (word)
+  "Check local dictionary first, if WORD is not there, calls `longman-lookup'."
+  (interactive (list
+                (let* ((w (if (use-region-p)
+                              (buffer-substring-no-properties (region-beginning) (region-end))
+                            (thing-at-point 'word t)))
+                       (ww (when w (string-trim w))))
+                  (if (and ww (not (string-empty-p ww)))
+                      (read-string (format "Enter word (%s): " ww) nil nil ww)
+                    (read-string "Enter word: ")))))
+  (let* ((valid (longman-lookup--validate-filename (concat word ".ro.org")))
+         (path (expand-file-name valid longman-lookup-save-dir)))
+    (if (file-exists-p path)
+        (find-file-other-window path)
+      (longman-lookup word))))
 
 (defun longman-lookup-go-to-link ()
   "Go to link under the cursor."
