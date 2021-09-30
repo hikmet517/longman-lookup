@@ -28,10 +28,6 @@
 (require 'rx)
 
 
-;;;###autoload
-(add-to-list 'auto-mode-alist '("\\.ro\\.org\\'" . read-only-org-mode))
-
-
 ;;;; Variables
 
 (defconst longman-lookup-buffer-format "*ldoce <%s>*"
@@ -114,7 +110,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
      (replace-regexp-in-string "[[:blank:]]+" " "))))
 
 (defun longman-lookup-edit ()
-  "Inhibit read-only-mode"
+  "Inhibit read-only-org-mode switch to `org-mode'."
   (interactive)
   (let ((name (buffer-name)))
     (when (and (string-prefix-p "*" name)
@@ -295,15 +291,19 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
 
 ;;;###autoload
 (defun longman-lookup-local-first (word)
-  "Check local dictionary first, if WORD is not there, calls `longman-lookup'."
+  "Check local dictionary first, if WORD is not there, call `longman-lookup'."
   (interactive (list
                 (let* ((w (if (use-region-p)
                               (buffer-substring-no-properties (region-beginning) (region-end))
                             (thing-at-point 'word t)))
-                       (ww (when w (string-trim w))))
-                  (if (and ww (not (string-empty-p ww)))
-                      (read-string (format "Enter word (%s): " ww) nil nil ww)
-                    (read-string "Enter word: ")))))
+                       (ww (if w (string-trim w) "")))
+                  (completing-read "Enter word: "
+                                   (mapcar #'(lambda (s)
+                                               (string-trim-right s "\\.ro\\.org$"))
+                                           (directory-files longman-lookup-save-dir
+                                                            nil
+                                                            ".+\\.ro\\.org$"))
+                                   nil nil nil nil ww))))
   (let* ((valid (longman-lookup--validate-filename (concat word ".ro.org")))
          (path (expand-file-name valid longman-lookup-save-dir)))
     (if (file-exists-p path)
@@ -319,6 +319,10 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
       (let ((link (buffer-substring-no-properties (match-beginning 1)
                                                   (match-end 1))))
         (url-retrieve link #'longman-lookup--parse-display-cb)))))
+
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.ro\\.org\\'" . read-only-org-mode))
 
 (provide 'longman-lookup)
 ;;; longman-lookup.el ends here
