@@ -315,7 +315,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   (interactive)
   (save-excursion
     (beginning-of-line)
-    (when (re-search-forward longman-org-link-regexp nil t)
+    (when (re-search-forward longman-org-link-regexp (line-end-position) t)
       (let ((link (buffer-substring-no-properties (match-beginning 1)
                                                   (match-end 1))))
         (url-retrieve link #'longman-lookup--parse-display-cb)))))
