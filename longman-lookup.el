@@ -120,7 +120,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   (setq buffer-read-only nil)
   (org-mode))
 
-(defun longman-lookup-save-buffer ()
+(defun longman-lookup-save-buffer (&optional overwrite)
   "Save the current buffer under `longman-lookup-save-dir'."
   (interactive)
   (when (string-empty-p longman-lookup-save-dir)
@@ -130,8 +130,9 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   (when (null current-word)
     (error "No word in buffer"))
   (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
+         (word (string-replace "-" " " word))
          (path (expand-file-name word longman-lookup-save-dir)))
-    (if (file-exists-p path)
+    (if (and (not overwrite) (file-exists-p path))
         (message "File already exists")
       (write-file path nil)
       (read-only-org-mode))))
@@ -139,16 +140,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
 (defun longman-lookup-save-buffer-overwrite ()
   "Save the current buffer under `longman-lookup-save-dir'."
   (interactive)
-  (when (string-empty-p longman-lookup-save-dir)
-    (error "Save directory is empty"))
-  (when (not (file-readable-p longman-lookup-save-dir))
-    (make-directory longman-lookup-save-dir t))
-  (when (null current-word)
-    (error "No word in buffer"))
-  (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
-         (path (expand-file-name word longman-lookup-save-dir)))
-    (write-file path nil)
-    (read-only-org-mode)))
+  (longman-lookup-save-buffer t))
 
 (defun longman-lookup-open-file ()
   "Open current document from disk, if it is saved."
