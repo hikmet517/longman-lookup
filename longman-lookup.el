@@ -61,6 +61,8 @@
     (define-key map "S" 'longman-lookup-save-buffer-overwrite)
     (define-key map "o" 'longman-lookup-open-file)
     (define-key map [(control ?m)] 'longman-lookup-go-to-link)
+    (define-key map [mouse-1] 'longman-lookup-go-to-link-mouse)
+    (define-key map [follow-link] 'mouse-face)
     map))
 
 
@@ -312,6 +314,11 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                                                   (match-end 1))))
         (url-retrieve link #'longman-lookup--parse-display-cb)))))
 
+(defun longman-lookup-go-to-link-mouse (ev)
+  "Open link at mouse."
+  (interactive "e")
+  (mouse-set-point ev)
+  (longman-lookup-go-to-link))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.ro\\.org\\'" . read-only-org-mode))
