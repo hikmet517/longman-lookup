@@ -111,6 +111,14 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
      (replace-regexp-in-string "\[<>:\"\|\?\*\n\]" " ")
      (replace-regexp-in-string "[[:blank:]]+" " "))))
 
+(defun longman-lookup--word-filename (&optional word)
+  "Get filename from WORD."
+  (let ((word (or word current-word)))
+    (when word
+      (let* ((word (longman-lookup--validate-filename (concat word ".ro.org")))
+             (word (string-replace "-" " " word)))
+        (expand-file-name word longman-lookup-save-dir)))))
+
 (defun longman-lookup-edit ()
   "Inhibit read-only-org-mode switch to `org-mode'."
   (interactive)
@@ -131,9 +139,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
     (make-directory longman-lookup-save-dir t))
   (when (null current-word)
     (error "No word in buffer"))
-  (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
-         (word (string-replace "-" " " word))
-         (path (expand-file-name word longman-lookup-save-dir)))
+  (let ((path (longman-lookup--word-filename)))
     (if (and (not overwrite) (file-exists-p path))
         (message "File already exists")
       (write-file path nil)
@@ -147,8 +153,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
 (defun longman-lookup-open-file ()
   "Open current document from disk, if it is saved."
   (interactive)
-  (let* ((word (longman-lookup--validate-filename (concat current-word ".ro.org")))
-         (path (expand-file-name word longman-lookup-save-dir)))
+  (let ((path (longman-lookup--word-filename)))
     (if (not (file-exists-p path))
         (error "File does not exist")
       (message "Opening file \"%s\"" path)
@@ -298,8 +303,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                                                             nil
                                                             ".+\\.ro\\.org$"))
                                    nil nil nil nil ww))))
-  (let* ((valid (longman-lookup--validate-filename (concat word ".ro.org")))
-         (path (expand-file-name valid longman-lookup-save-dir)))
+  (let ((path (longman-lookup--word-filename word)))
     (if (file-exists-p path)
         (find-file-other-window path)
       (longman-lookup word))))
