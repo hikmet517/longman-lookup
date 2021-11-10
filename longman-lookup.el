@@ -271,7 +271,8 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
               (setq current-word (car (last (split-string last-url "/"))))
               (setq current-url last-url))
           (setq current-word header)
-          (setq current-url (concat longman-direct-url current-word))))
+          (setq current-url (concat longman-direct-url
+                                    (string-replace " " "-" current-word)))))
       (display-buffer buf))))
 
 ;;;###autoload
@@ -318,10 +319,10 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
                                                   (match-end 1))))
         (url-retrieve link #'longman-lookup--parse-display-cb)))))
 
-(defun longman-lookup-go-to-link-mouse (ev)
+(defun longman-lookup-go-to-link-mouse (pos)
   "Open link at mouse."
   (interactive "e")
-  (mouse-set-point ev)
+  (mouse-set-point pos)
   (longman-lookup-go-to-link))
 
 ;;;###autoload
