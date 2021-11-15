@@ -313,11 +313,12 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   "Go to link under the cursor."
   (interactive)
   (save-excursion
-    (beginning-of-line)
-    (when (re-search-forward longman-org-link-regexp (line-end-position) t)
-      (let ((link (buffer-substring-no-properties (match-beginning 1)
-                                                  (match-end 1))))
-        (url-retrieve link #'longman-lookup--parse-display-cb)))))
+    (let ((pt (point)))
+      (beginning-of-line)
+      (when (re-search-forward longman-org-link-regexp (line-end-position) t)
+        (let ((link (buffer-substring-no-properties (match-beginning 1) (match-end 1))))
+          (when (< (match-beginning 0) pt (match-end 0))
+            (url-retrieve link #'longman-lookup--parse-display-cb)))))))
 
 (defun longman-lookup-go-to-link-mouse (pos)
   "Open link at mouse."
