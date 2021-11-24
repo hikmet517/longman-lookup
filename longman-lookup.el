@@ -91,6 +91,7 @@
   (goto-char (point-min))
   (setq buffer-read-only t)
   (set-buffer-modified-p nil)
+  (setq-local mouse-1-click-follows-link nil)
   (when buffer-file-name
     (setq current-word (string-trim-right (file-name-nondirectory buffer-file-name)
                                           "\\.ro\\.org"))
