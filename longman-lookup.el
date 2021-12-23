@@ -1,9 +1,9 @@
 ;;; longman-lookup.el --- Lookup a word in Longman Dictionary  -*- lexical-binding: t -*-
 
 ;; Author: Hikmet Altıntaş (hikmet1517@gmail.com)
-;; Keywords: tools, extensions
-;; URL: "https://github.com/hikmet517/longman-lookup.el"
 ;; Keywords: convenience
+;; URL: "https://github.com/hikmet517/longman-lookup.el"
+;; Version: 0.1
 
 ;;; Commentary:
 ;; Lookup a word in Longman English Dictionary and create an org mode buffer
@@ -14,6 +14,7 @@
 ;;   - a word with no entry but ref (pander)
 ;;   - a word with no sense etc.
 ;;   - good examples: mind, render, evasive, beyond, meddle, look up, pander
+;; * inline link class="defRef" example: spectral
 
 
 ;;; Code:
@@ -33,9 +34,9 @@
 (defconst longman-lookup-buffer-format "*ldoce <%s>*"
   "Format for buffer names.")
 
-(defvar-local current-url nil "Current url.")
+(defvar-local longman-current-url nil "Current url.")
 
-(defvar-local current-word nil "Current word.")
+(defvar-local longman-current-word nil "Current word.")
 
 (defconst longman-base-url "https://www.ldoceonline.com")
 
@@ -82,6 +83,13 @@
 
 ;;;; Functions
 
+(defun longman-lookup--url-from-word (word)
+  (concat longman-direct-url
+          (thread-last
+            word
+            (replace-regexp-in-string "[()]" "")
+            (replace-regexp-in-string "[ ’]" "-"))))
+
 ;;;###autoload
 (define-derived-mode read-only-org-mode org-mode "Read-Only Org"
   "Major mode used in longman-lookup.
@@ -93,9 +101,9 @@
   (set-buffer-modified-p nil)
   (setq-local mouse-1-click-follows-link nil)
   (when buffer-file-name
-    (setq current-word (string-trim-right (file-name-nondirectory buffer-file-name)
+    (setq longman-current-word (string-trim-right (file-name-nondirectory buffer-file-name)
                                           "\\.ro\\.org"))
-    (setq current-url (concat longman-direct-url (string-replace " " "-" current-word)))))
+    (setq longman-current-url (longman-lookup--url-from-word longman-current-word))))
 
 
 (when (not (fboundp 'string-replace))
@@ -114,7 +122,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
 
 (defun longman-lookup--word-filename (&optional word)
   "Get filename from WORD."
-  (let ((word (or word current-word)))
+  (let ((word (or word longman-current-word)))
     (when word
       (let* ((word (longman-lookup--validate-filename (concat word ".ro.org")))
              (word (string-replace "-" " " word)))
@@ -138,7 +146,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
     (error "Save directory is empty"))
   (when (not (file-readable-p longman-lookup-save-dir))
     (make-directory longman-lookup-save-dir t))
-  (when (null current-word)
+  (when (null longman-current-word)
     (error "No word in buffer"))
   (let ((path (longman-lookup--word-filename)))
     (if (and (not overwrite) (file-exists-p path))
@@ -163,7 +171,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
 (defun longman-lookup-browse ()
   "Browser url for current 'read-only org' buffer."
   (interactive)
-  (browse-url current-url))
+  (browse-url longman-current-url))
 
 (defun longman-lookup--get-node-text (n)
   "Get text inside node N (escaping &nbsp and multiple spaces)."
@@ -269,11 +277,10 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
         ;; set local-variables
         (if-let (last-url (plist-get status :redirect))
             (progn
-              (setq current-word (car (last (split-string last-url "/"))))
-              (setq current-url last-url))
-          (setq current-word header)
-          (setq current-url (concat longman-direct-url
-                                    (string-replace " " "-" current-word)))))
+              (setq longman-current-word (car (last (split-string last-url "/"))))
+              (setq longman-current-url last-url))
+          (setq longman-current-word header)
+          (setq longman-current-url (longman-lookup--url-from-word longman-current-word))))
       (display-buffer buf))))
 
 ;;;###autoload
