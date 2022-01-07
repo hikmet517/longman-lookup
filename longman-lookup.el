@@ -15,6 +15,7 @@
 ;;   - a word with no sense etc.
 ;;   - good examples: mind, render, evasive, beyond, meddle, look up, pander
 ;; * inline link class="defRef" example: spectral
+;; * add SYNs, ex: abate
 
 
 ;;; Code:
@@ -325,7 +326,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
       (beginning-of-line)
       (when (re-search-forward longman-org-link-regexp (line-end-position) t)
         (let ((link (buffer-substring-no-properties (match-beginning 1) (match-end 1))))
-          (when (< (match-beginning 0) pt (match-end 0))
+          (when (<= (match-beginning 0) pt (match-end 0))
             (url-retrieve link #'longman-lookup--parse-display-cb)))))))
 
 (defun longman-lookup-go-to-link-mouse (pos)
