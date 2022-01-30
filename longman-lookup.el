@@ -15,7 +15,8 @@
 ;;   - a word with no sense etc.
 ;;   - good examples: mind, render, evasive, beyond, meddle, look up, pander
 ;; * inline link class="defRef" example: spectral
-;; * add SYNs, ex: abate
+;; * add SYNs, ex: abate, saturate
+;; * add /formal/, ex: saturate
 
 
 ;;; Code:
@@ -180,7 +181,8 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
     (string-trim (replace-regexp-in-string "[[:blank:]]+" " " s))))
 
 (defun longman-lookup--parse-crossref (node)
-  "Handle NODE which has a class CROSSREF, return an org link with → in the beginning."
+  "Handle NODE which has a class CROSSREF, return an org link
+with → in the beginning."
   (let* ((a-elem (dom-by-tag node 'a))
          (link (concat longman-base-url (cdr (assoc 'href (dom-attributes a-elem)))))
          (text (longman-lookup--get-node-text (car (dom-by-class a-elem "^REFHWD$")))))
@@ -286,7 +288,8 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
 
 ;;;###autoload
 (defun longman-lookup (word)
-  "Get the definition of WORD from 'ldoceonline.com' and display it in an `org-mode' buffer."
+  "Get the definition of WORD from 'ldoceonline.com' and display it
+in an `org-mode' buffer."
   (interactive (list
                 (let* ((w (if (use-region-p)
                               (buffer-substring-no-properties (region-beginning) (region-end))
@@ -326,7 +329,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
       (beginning-of-line)
       (when (re-search-forward longman-org-link-regexp (line-end-position) t)
         (let ((link (buffer-substring-no-properties (match-beginning 1) (match-end 1))))
-          (when (<= (match-beginning 0) pt (match-end 0))
+          (when (<= (match-beginning 0) pt (1- (match-end 0)))
             (url-retrieve link #'longman-lookup--parse-display-cb)))))))
 
 (defun longman-lookup-go-to-link-mouse (pos)
