@@ -15,8 +15,8 @@
 ;;   - a word with no sense etc.
 ;;   - good examples: mind, render, evasive, beyond, meddle, look up, pander
 ;; * inline link class="defRef" example: spectral
-;; * add SYNs, ex: abate, saturate
 ;; * add /formal/, ex: saturate
+;; * add SIGNPOST (related categories e.g story/film, drawing), ex: plot
 
 
 ;;; Code:
@@ -201,6 +201,10 @@ with → in the beginning."
         (setq text (concat (string-remove-suffix "\n" text)
                            " "
                            (longman-lookup--get-node-text node) "\n")))
+       ((or (string= (dom-attr node 'class) "SYN")
+            (string= (dom-attr node 'class) "OPP"))
+        (setq text (concat (string-remove-suffix "\n" text)
+                           " [" (longman-lookup--get-node-text node) "]\n")))
        ((string= (dom-attr node 'class) "EXAMPLE")
         (setq text (concat text indent "- " (longman-lookup--get-node-text node) "\n")))
        ((or (string= (dom-attr node 'class) "GramExa")
