@@ -17,6 +17,7 @@
 ;; * inline link class="defRef" example: spectral
 ;; * add /formal/, ex: saturate
 ;; * add SIGNPOST (related categories e.g story/film, drawing), ex: plot
+;; * handle multiple synonyms, ex: foster
 
 
 ;;; Code:
@@ -65,7 +66,6 @@
     (define-key map "o" 'longman-lookup-open-file)
     (define-key map [(control ?m)] 'longman-lookup-go-to-link)
     (define-key map [mouse-1] 'longman-lookup-go-to-link-mouse)
-    (define-key map [follow-link] 'mouse-face)
     map))
 
 
@@ -90,7 +90,8 @@
           (thread-last
             word
             (replace-regexp-in-string "[()]" "")
-            (replace-regexp-in-string "[ ’]" "-"))))
+            (replace-regexp-in-string "[ ’]" "-")
+            (replace-regexp-in-string "/" "-"))))
 
 ;;;###autoload
 (define-derived-mode read-only-org-mode org-mode "Read-Only Org"
@@ -171,7 +172,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
       (find-file path))))
 
 (defun longman-lookup-browse ()
-  "Browser url for current 'read-only org' buffer."
+  "Browser url for current read-only-org buffer."
   (interactive)
   (browse-url longman-current-url))
 
@@ -201,10 +202,12 @@ with → in the beginning."
         (setq text (concat (string-remove-suffix "\n" text)
                            " "
                            (longman-lookup--get-node-text node) "\n")))
-       ((or (string= (dom-attr node 'class) "SYN")
-            (string= (dom-attr node 'class) "OPP"))
+       ((string= (dom-attr node 'class) "SYN")
         (setq text (concat (string-remove-suffix "\n" text)
-                           " [" (longman-lookup--get-node-text node) "]\n")))
+                           " [SYN " (string-trim (dom-text node)) "]\n")))
+       ((string= (dom-attr node 'class) "OPP")
+        (setq text (concat (string-remove-suffix "\n" text)
+                           " [OPP " (string-trim (dom-text node)) "]\n")))
        ((string= (dom-attr node 'class) "EXAMPLE")
         (setq text (concat text indent "- " (longman-lookup--get-node-text node) "\n")))
        ((or (string= (dom-attr node 'class) "GramExa")
@@ -292,7 +295,7 @@ with → in the beginning."
 
 ;;;###autoload
 (defun longman-lookup (word)
-  "Get the definition of WORD from 'ldoceonline.com' and display it
+  "Get the definition of WORD from ldoceonline.com and display it
 in an `org-mode' buffer."
   (interactive (list
                 (let* ((w (if (use-region-p)
