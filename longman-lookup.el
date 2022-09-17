@@ -35,6 +35,7 @@
 ;; * add /formal/, ex: saturate
 ;; * add SIGNPOST (related categories e.g story/film, drawing), ex: plot
 ;; * handle multiple synonyms, ex: foster
+;; * fix 'inadvertent'
 
 
 ;;; Code:
@@ -196,7 +197,10 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
 (defun longman-lookup--get-node-text (n)
   "Get text inside node N (escaping &nbsp and multiple spaces)."
   (let ((s (string-replace " " " " (dom-texts n ""))))
-    (string-trim (replace-regexp-in-string "[[:blank:]]+" " " s))))
+    (thread-last
+      s
+      (replace-regexp-in-string "[[:blank:]]+" " ")
+      (string-trim))))
 
 (defun longman-lookup--parse-crossref (node)
   "Handle NODE which has a class CROSSREF, return an org link
@@ -216,9 +220,10 @@ with → in the beginning."
         (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n"))
         (setq indent (make-string 4 ?\s)))
        ((string= (dom-attr node 'class) "RELATEDWD")
-        (setq text (concat (string-remove-suffix "\n" text)
-                           " "
-                           (longman-lookup--get-node-text node) "\n")))
+        (let ((node-text (longman-lookup--get-node-text node)))
+          (setq text (concat (string-remove-suffix "\n" text)
+                             (if (= (aref node-text 0) ?,) "" " ")
+                             node-text "\n"))))
        ((string= (dom-attr node 'class) "SYN")
         (setq text (concat (string-remove-suffix "\n" text)
                            " [SYN " (string-trim (dom-text node)) "]\n")))
