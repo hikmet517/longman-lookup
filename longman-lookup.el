@@ -341,9 +341,10 @@ in an `org-mode' buffer."
                   (completing-read "Enter word: "
                                    (mapcar #'(lambda (s)
                                                (string-trim-right s "\\.ro\\.org$"))
-                                           (directory-files longman-lookup-save-dir
-                                                            nil
-                                                            ".+\\.ro\\.org$"))
+                                           (when (file-exists-p longman-lookup-save-dir)
+                                             (directory-files longman-lookup-save-dir
+                                                              nil
+                                                              ".+\\.ro\\.org$")))
                                    nil nil nil nil ww))))
   (let ((path (longman-lookup--word-filename word)))
     (if (file-exists-p path)
