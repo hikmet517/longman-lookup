@@ -104,6 +104,7 @@
 ;;;; Functions
 
 (defun longman-lookup--url-from-word (word)
+  "Find url from given WORD."
   (concat longman-direct-url
           (thread-last
             word
@@ -116,7 +117,7 @@
   "Major mode used in longman-lookup.
 
 \\{read-only-org-mode-map}"
-  (org-show-all)
+  (org-fold-show-all)
   (goto-char (point-min))
   (setq buffer-read-only t)
   (set-buffer-modified-p nil)
@@ -161,7 +162,9 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
   (org-mode))
 
 (defun longman-lookup-save-buffer (&optional overwrite)
-  "Save the current buffer under `longman-lookup-save-dir'."
+  "Save the current buffer under `longman-lookup-save-dir'.
+
+If OVERWRITE is given, overwrite old file."
   (interactive)
   (when (string-empty-p longman-lookup-save-dir)
     (error "Save directory is empty"))
@@ -203,8 +206,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
       (string-trim))))
 
 (defun longman-lookup--parse-crossref (node)
-  "Handle NODE which has a class CROSSREF, return an org link
-with → in the beginning."
+  "Handle NODE which has a class CROSSREF, return an org link with → in the beginning."
   (let* ((a-elem (dom-by-tag node 'a))
          (link (concat longman-base-url (cdr (assoc 'href (dom-attributes a-elem)))))
          (text (longman-lookup--get-node-text (car (dom-by-class a-elem "^REFHWD$")))))
@@ -317,8 +319,7 @@ with → in the beginning."
 
 ;;;###autoload
 (defun longman-lookup (word)
-  "Get the definition of WORD from ldoceonline.com and display it
-in an `org-mode' buffer."
+  "Get the definition of WORD from ldoce and display it in an `org-mode' buffer."
   (interactive (list
                 (let* ((w (if (use-region-p)
                               (buffer-substring-no-properties (region-beginning) (region-end))
@@ -363,7 +364,7 @@ in an `org-mode' buffer."
             (url-retrieve link #'longman-lookup--parse-display-cb)))))))
 
 (defun longman-lookup-go-to-link-mouse (pos)
-  "Open link at mouse."
+  "Open link at mouse position POS."
   (interactive "e")
   (mouse-set-point pos)
   (longman-lookup-go-to-link))
