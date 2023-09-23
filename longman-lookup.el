@@ -218,8 +218,12 @@ If OVERWRITE is given, overwrite old file."
         (indent ""))
     (dolist (node (dom-non-text-children sense))
       (cond
+       ((string= (dom-attr node 'class) "REGISTERLAB")
+        (setq text (concat text "  * /" (longman-lookup--get-node-text node) "/ ")))
        ((string= (dom-attr node 'class) "DEF")
-        (setq text (concat text "  * " (longman-lookup--get-node-text node) "\n"))
+        (when (string-empty-p text)
+          (setq text (concat text "  * ")))
+        (setq text (concat text (longman-lookup--get-node-text node) "\n"))
         (setq indent (make-string 4 ?\s)))
        ((string= (dom-attr node 'class) "RELATEDWD")
         (let ((node-text (longman-lookup--get-node-text node)))
