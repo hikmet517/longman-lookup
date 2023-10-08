@@ -118,6 +118,7 @@
 
 \\{read-only-org-mode-map}"
   (org-fold-show-all)
+  (setq org-hide-emphasis-markers t)
   (goto-char (point-min))
   (setq buffer-read-only t)
   (set-buffer-modified-p nil)
@@ -159,6 +160,7 @@ URL `https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-
       (longman-lookup-save-buffer)
       (longman-lookup-open-file)))
   (setq buffer-read-only nil)
+  (setq org-hide-emphasis-markers nil)
   (org-mode))
 
 (defun longman-lookup-save-buffer (&optional overwrite)
